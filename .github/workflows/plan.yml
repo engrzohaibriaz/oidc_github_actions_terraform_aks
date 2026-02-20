@@ -168,10 +168,10 @@ jobs:
           name: ${{ matrix.environment }}-plan-${{ steps.meta.outputs.plan-metadata }}
 
           path: |
-            ${{ steps.tplan.outputs.plan_file }}
-            ${{ steps.jsonplan.outputs.plan_json }}
-            ${{ steps.textplan.outputs.plan_txt }}
-            ${{ steps.metadatafile.outputs.metadata_file }}
+            terraform/${{ steps.tplan.outputs.plan_file }}
+            terraform/${{ steps.jsonplan.outputs.plan_json }}
+            terraform/${{ steps.textplan.outputs.plan_txt }}
+            terraform/${{ steps.metadatafile.outputs.metadata_file }}
           retention-days: 400
 
       # ------------------------------------------------
