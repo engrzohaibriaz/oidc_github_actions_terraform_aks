@@ -179,6 +179,7 @@ jobs:
       # ------------------------------------------------            
       - name: Upload Plan and JSONPlan and TextPlan to Azure Blob
         run: |
+        working-directory: terraform    
           az storage blob upload \
             --account-name $STORAGE_ACCOUNT \
             --container-name $PLAN_CONTAINER \
@@ -194,6 +195,7 @@ jobs:
             --name ${{ matrix.environment }}/$(basename ${{ steps.jsonplan.outputs.plan_json }}) \
             --auth-mode login
             --overwrite true
+
 
           az storage blob upload \
             --account-name $STORAGE_ACCOUNT \
