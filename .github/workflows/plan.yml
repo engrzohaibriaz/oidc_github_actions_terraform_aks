@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        environment: [dev, qa, prod]
+        environment: [dev]
 
     steps:
 
@@ -39,6 +39,8 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          allow-no-subscriptions: true
+          enable-AAD-login: true
 
       # ------------------------------------------------
       # Setup Terraform
@@ -161,7 +163,7 @@ jobs:
 
 
       # ------------------------------------------------
-      # Upload Both Plans to GitHub Artifact (Short-Term Audit Storage)
+      # Upload  Plans to GitHub Artifact (Short-Term Audit Storage)
       # ------------------------------------------------         
       - uses: actions/upload-artifact@v4
         with:
@@ -175,7 +177,7 @@ jobs:
           retention-days: 400
 
       # ------------------------------------------------
-      # Upload Both Plans to Azure Blob Storage (Long-Term Audit Storage)
+      # Upload  Plans to Azure Blob Storage (Long-Term Audit Storage)
       # ------------------------------------------------            
       - name: Upload Plan and JSONPlan and TextPlan to Azure Blob
         run: |
