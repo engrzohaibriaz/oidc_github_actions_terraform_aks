@@ -18,6 +18,7 @@ env:
 jobs:
   plan:
     runs-on: ubuntu-latest
+    environment: ${{ matrix.environment }} 
     strategy:
       matrix:
         environment: [dev]
