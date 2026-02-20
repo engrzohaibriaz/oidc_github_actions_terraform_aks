@@ -200,7 +200,7 @@ jobs:
             --container-name $PLAN_CONTAINER \
             --file $JSON_FILE \
             --name ${{ matrix.environment }}/JSON_FILE \
-            --auth-mode login
+            --auth-mode login \
             --overwrite true
 
 
@@ -209,7 +209,7 @@ jobs:
             --container-name $PLAN_CONTAINER \
             --file $TEXT_FILE \
             --name ${{ matrix.environment }}/$TEXT_FILE \
-            --auth-mode login
+            --auth-mode login \
             --overwrite true
 
           az storage blob upload \
@@ -217,5 +217,5 @@ jobs:
             --container-name $PLAN_CONTAINER \
             --file $METADATA_FILE \
             --name ${{ matrix.environment }}/METADATA_FILE \
-            --auth-mode login
+            --auth-mode login \
             --overwrite true  
