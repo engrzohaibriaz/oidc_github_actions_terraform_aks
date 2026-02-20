@@ -1,0 +1,43 @@
+name: Approve Terraform Plan
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        required: true
+        type: choice
+        options: [dev, qa, prod]
+      plan_file:
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  STORAGE_ACCOUNT: ${{ secrets.STORAGE_ACCOUNT }}
+  RAW_CONTAINER: ${{ secrets.TFPLANS_RAW }}
+  APPROVED_CONTAINER: ${{ secrets.TFPLANS_APPROVED }}
+
+jobs:
+  approve:
+    runs-on: ubuntu-latest
+    environment: dev   # 👈 Requires approval in GitHub settings
+
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Copy Plan from RAW to APPROVED
+        run: |
+          az storage blob copy start \
+            --account-name $STORAGE_ACCOUNT \
+            --source-container $RAW_CONTAINER \
+            --source-blob ${{ inputs.environment }}/${{ inputs.plan_file }} \
+            --destination-container $APPROVED_CONTAINER \
+            --destination-blob ${{ inputs.environment }}/${{ inputs.plan_file }}

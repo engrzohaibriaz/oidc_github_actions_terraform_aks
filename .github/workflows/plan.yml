@@ -1,0 +1,212 @@
+
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+
+env:
+  STORAGE_ACCOUNT: ${{ secrets.STORAGE_ACCOUNT }}
+  PLAN_CONTAINER: ${{ secrets.TFPLANS_RAW }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [dev, qa, prod]
+
+    steps:
+
+      # ------------------------------------------------
+      # Checkout
+      # ------------------------------------------------
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------
+      # Azure Login Using OpenID Connect (OIDC)
+      # ------------------------------------------------
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # ------------------------------------------------
+      # Setup Terraform
+      # ------------------------------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # ------------------------------------------------
+      # Generate UTC Timestamp
+      # ------------------------------------------------
+      - name: Generate Plan Metadata
+        id: meta
+        run: |
+          TIMESTAMP=$(date -u +"%Y%m%dT%H%M%SZ")
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "creator=${GITHUB_ACTOR}" >> $GITHUB_OUTPUT
+          echo "runid=${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
+          echo "commit=${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "branch=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          echo "pr=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          echo "plan-metadata=$TIMESTAMP-${GITHUB_ACTOR}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
+
+
+
+      # ------------------------------------------------
+      # Checks if your code follows the standard HCL layout ( indentation, spacing, alignment of = )
+      # ------------------------------------------------
+      - name: Terraform Format Check (Check weather code follows HCL standards/layout)        
+        run: terraform fmt -check
+        working-directory: terraform
+
+      # ------------------------------------------------
+      # Terraform init
+      # ------------------------------------------------      
+      - name: Terraform Initialize
+        run: terraform init -backend-config=backend/${{ matrix.environment }}.hcl
+        working-directory: terraform
+
+      # ------------------------------------------------
+      # Terraform Validate        
+      # Checks if the code is syntactically correct and internally consistent
+      # Missing mandatory arguments, incorrect attribute names, type mismatches (e.g., passing a string to a list), and duplicate resource names
+      # You must run terraform init before validate
+      # ------------------------------------------------
+      - name: Terraform Validate        
+        run: terraform validate
+        working-directory: terraform
+
+     
+     
+      # ------------------------------------------------
+      # Generate Terraform Plan
+      # ------------------------------------------------     
+      - name: Terraform Plan
+        id: tplan
+        run: | 
+          # PLAN_FILE=terraform/${{ matrix.environment }}-${{ steps.meta.outputs.timestamp }}-${{ steps.meta.outputs.creator }}-${{ steps.meta.outputs.runid }}.tfplan
+          PLAN_FILE=terraform/${{ matrix.environment }}-${{ steps.meta.outputs.plan-metadata }}.tfplan
+          terraform plan \
+            -var-file=env/${{ matrix.environment }}.tfvars \
+            -out=$PLAN_FILE
+          echo "plan_file=$PLAN_FILE" >> $GITHUB_OUTPUT
+        working-directory: terraform
+
+
+      # ------------------------------------------------
+      # Generate Terraform JSON Plan
+      # ------------------------------------------------           
+      - name: Generate JSON Plan
+        id: jsonplan      
+        run: |
+          # PLAN_JSON=terraform/${{ matrix.environment }}-${{ steps.meta.outputs.timestamp }}-${{ steps.meta.outputs.creator }}-${{ steps.meta.outputs.runid }}.json
+          PLAN_JSON=terraform/${{ matrix.environment }}-${{ steps.meta.outputs.plan-metadata }}.json
+          terraform show -json ${{ steps.tplan.outputs.plan_file }} > $PLAN_JSON
+          echo "plan_json=$PLAN_JSON" >> $GITHUB_OUTPUT
+        working-directory: terraform
+      
+      # ------------------------------------------------
+      # Generate Human Readable Plan (Audit Friendly)
+      # ------------------------------------------------
+      - name: Generate Text Plan Summary
+        id: textplan
+        run: |
+          PLAN_TXT=terraform/${{ matrix.environment }}-${{ steps.meta.outputs.plan-metadata }}.txt
+          terraform show ${{ steps.tplan.outputs.plan_file }} > $PLAN_TXT
+          echo "plan_txt=$PLAN_TXT" >> $GITHUB_OUTPUT
+        working-directory: terraform
+
+      # ------------------------------------------------
+      # Generate Plan Metadata JSON (Enterprise Audit File)
+      # ------------------------------------------------
+      - name: Generate Metadata JSON
+        id: metadatafile
+        run: |
+          META_FILE=terraform/${{ matrix.environment }}-${{ steps.meta.outputs.plan-metadata }}.metadata.json
+
+          sha256sum ${{ steps.tplan.outputs.plan_file }} | awk '{print $1}' > checksum.txt
+          CHECKSUM=$(cat checksum.txt)
+
+          cat <<EOF > $META_FILE
+          {
+             "environment": "${{ matrix.environment }}",
+             "timestamp": "${{ steps.meta.outputs.timestamp }}",
+             "creator": "${{ steps.meta.outputs.creator }}",
+             "run_id": "${{ steps.meta.outputs.runid }}",
+             "commit_sha": "${{ steps.meta.outputs.commit }}",
+             "branch": "${{ steps.meta.outputs.branch }}",
+             "pull_request": "${{ steps.meta.outputs.pr }}",
+             "plan_file": "$(basename ${{ steps.tplan.outputs.plan_file }})",
+             "json_plan_file": "$(basename ${{ steps.jsonplan.outputs.plan_json }})",
+             "text_plan_file": "$(basename ${{ steps.textplan.outputs.plan_txt }})",
+             "sha256_checksum": "$CHECKSUM",
+             "approved": false,
+             "applied": false
+          }
+          EOF
+
+          echo "metadata_file=$META_FILE" >> $GITHUB_OUTPUT
+        working-directory: terraform        
+
+
+      # ------------------------------------------------
+      # Upload Both Plans to GitHub Artifact (Short-Term Audit Storage)
+      # ------------------------------------------------         
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.environment }}-plan-${{ steps.meta.outputs.plan-metadata }}
+
+          path: |
+            ${{ steps.tplan.outputs.plan_file }}
+            ${{ steps.jsonplan.outputs.plan_json }}
+            ${{ steps.textplan.outputs.plan_txt }}
+            ${{ steps.metadatafile.outputs.metadata_file }}
+          retention-days: 400
+
+      # ------------------------------------------------
+      # Upload Both Plans to Azure Blob Storage (Long-Term Audit Storage)
+      # ------------------------------------------------            
+      - name: Upload Plan and JSONPlan and TextPlan to Azure Blob
+        run: |
+          az storage blob upload \
+            --account-name $STORAGE_ACCOUNT \
+            --container-name $PLAN_CONTAINER \
+            --file ${{ steps.tplan.outputs.plan_file }} \
+            --name ${{ matrix.environment }}/$(basename ${{ steps.tplan.outputs.plan_file }}) \
+            --auth-mode login
+            --overwrite true
+
+          az storage blob upload \
+            --account-name $STORAGE_ACCOUNT \
+            --container-name $PLAN_CONTAINER \
+            --file ${{ steps.jsonplan.outputs.plan_json }} \
+            --name ${{ matrix.environment }}/$(basename ${{ steps.jsonplan.outputs.plan_json }}) \
+            --auth-mode login
+            --overwrite true
+
+          az storage blob upload \
+            --account-name $STORAGE_ACCOUNT \
+            --container-name $PLAN_CONTAINER \
+            --file ${{ steps.textplan.outputs.plan_txt }} \
+            --name ${{ matrix.environment }}/$(basename ${{ steps.textplan.outputs.plan_txt }}) \
+            --auth-mode login
+            --overwrite true
+
+          az storage blob upload \
+            --account-name $STORAGE_ACCOUNT \
+            --container-name $PLAN_CONTAINER \
+            --file ${{ steps.metadatafile.outputs.metadata_file }} \
+            --name ${{ matrix.environment }}/$(basename ${{ steps.metadatafile.outputs.metadata_file }}) \
+            --auth-mode login
+            --overwrite true  
