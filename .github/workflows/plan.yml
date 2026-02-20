@@ -180,11 +180,12 @@ jobs:
       - name: Upload Plan and JSONPlan and TextPlan to Azure Blob
         run: |
 
-          # Define common variables to keep the commands clean
-          PLAN_FILE = "${{ steps.tplan.outputs.plan_file }}"
-          JSON_FILE = "${{ steps.jsonplan.outputs.plan_json }}"
-          TEXT_FILE = "${{ steps.textplan.outputs.plan_txt }}"
-          METADATA_FILE = "${{ steps.metadatafile.outputs.metadata_file }}   
+          #  We must point to the terraform folder 
+          #  IMPORTANT: No spaces around the = sign
+          PLAN_FILE="terraform/${{ steps.tplan.outputs.plan_file }}"
+          JSON_FILE="terraform/${{ steps.jsonplan.outputs.plan_json }}"
+          TEXT_FILE="terraform/${{ steps.textplan.outputs.plan_txt }}"
+          METADATA_FILE="terraform/${{ steps.metadatafile.outputs.metadata_file }}"   
 
           az storage blob upload \
             --account-name $STORAGE_ACCOUNT \
