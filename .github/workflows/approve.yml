@@ -33,7 +33,6 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           allow-no-subscriptions: true
-          enable-AAD-login: true
 
       - name: Copy Plan from RAW to APPROVED
         run: |
