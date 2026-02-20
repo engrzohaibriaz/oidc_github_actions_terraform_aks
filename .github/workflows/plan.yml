@@ -179,20 +179,26 @@ jobs:
       # ------------------------------------------------            
       - name: Upload Plan and JSONPlan and TextPlan to Azure Blob
         run: |
-        working-directory: terraform    
+
+          # Define common variables to keep the commands clean
+          PLAN_FILE = "${{ steps.tplan.outputs.plan_file }}"
+          JSON_FILE = "${{ steps.jsonplan.outputs.plan_json }}"
+          TEXT_FILE = "${{ steps.textplan.outputs.plan_txt }}"
+          METADATA_FILE = "${{ steps.metadatafile.outputs.metadata_file }}   
+
           az storage blob upload \
             --account-name $STORAGE_ACCOUNT \
             --container-name $PLAN_CONTAINER \
-            --file ${{ steps.tplan.outputs.plan_file }} \
-            --name ${{ matrix.environment }}/$(basename ${{ steps.tplan.outputs.plan_file }}) \
+            --file $PLAN_FILE \
+            --name ${{ matrix.environment }}/$PLAN_FILE \
             --auth-mode login
             --overwrite true
 
           az storage blob upload \
             --account-name $STORAGE_ACCOUNT \
             --container-name $PLAN_CONTAINER \
-            --file ${{ steps.jsonplan.outputs.plan_json }} \
-            --name ${{ matrix.environment }}/$(basename ${{ steps.jsonplan.outputs.plan_json }}) \
+            --file $JSON_FILE \
+            --name ${{ matrix.environment }}/JSON_FILE \
             --auth-mode login
             --overwrite true
 
@@ -200,15 +206,15 @@ jobs:
           az storage blob upload \
             --account-name $STORAGE_ACCOUNT \
             --container-name $PLAN_CONTAINER \
-            --file ${{ steps.textplan.outputs.plan_txt }} \
-            --name ${{ matrix.environment }}/$(basename ${{ steps.textplan.outputs.plan_txt }}) \
+            --file $TEXT_FILE \
+            --name ${{ matrix.environment }}/$TEXT_FILE \
             --auth-mode login
             --overwrite true
 
           az storage blob upload \
             --account-name $STORAGE_ACCOUNT \
             --container-name $PLAN_CONTAINER \
-            --file ${{ steps.metadatafile.outputs.metadata_file }} \
-            --name ${{ matrix.environment }}/$(basename ${{ steps.metadatafile.outputs.metadata_file }}) \
+            --file $METADATA_FILE \
+            --name ${{ matrix.environment }}/METADATA_FILE \
             --auth-mode login
             --overwrite true  
