@@ -192,7 +192,7 @@ jobs:
             --container-name $PLAN_CONTAINER \
             --file $PLAN_FILE \
             --name ${{ matrix.environment }}/$PLAN_FILE \
-            --auth-mode login
+            --auth-mode login \
             --overwrite true
 
           az storage blob upload \
