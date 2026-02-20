@@ -97,8 +97,7 @@ jobs:
       - name: Terraform Plan
         id: tplan
         run: | 
-          # PLAN_FILE=terraform/${{ matrix.environment }}-${{ steps.meta.outputs.timestamp }}-${{ steps.meta.outputs.creator }}-${{ steps.meta.outputs.runid }}.tfplan
-          PLAN_FILE=terraform/${{ matrix.environment }}-${{ steps.meta.outputs.plan-metadata }}.tfplan
+          PLAN_FILE=${{ matrix.environment }}-${{ steps.meta.outputs.plan-metadata }}.tfplan
           terraform plan \
             -var-file=env/${{ matrix.environment }}.tfvars \
             -out=$PLAN_FILE
@@ -112,8 +111,7 @@ jobs:
       - name: Generate JSON Plan
         id: jsonplan      
         run: |
-          # PLAN_JSON=terraform/${{ matrix.environment }}-${{ steps.meta.outputs.timestamp }}-${{ steps.meta.outputs.creator }}-${{ steps.meta.outputs.runid }}.json
-          PLAN_JSON=terraform/${{ matrix.environment }}-${{ steps.meta.outputs.plan-metadata }}.json
+          PLAN_JSON=${{ matrix.environment }}-${{ steps.meta.outputs.plan-metadata }}.json
           terraform show -json ${{ steps.tplan.outputs.plan_file }} > $PLAN_JSON
           echo "plan_json=$PLAN_JSON" >> $GITHUB_OUTPUT
         working-directory: terraform
@@ -124,7 +122,7 @@ jobs:
       - name: Generate Text Plan Summary
         id: textplan
         run: |
-          PLAN_TXT=terraform/${{ matrix.environment }}-${{ steps.meta.outputs.plan-metadata }}.txt
+          PLAN_TXT=${{ matrix.environment }}-${{ steps.meta.outputs.plan-metadata }}.txt
           terraform show ${{ steps.tplan.outputs.plan_file }} > $PLAN_TXT
           echo "plan_txt=$PLAN_TXT" >> $GITHUB_OUTPUT
         working-directory: terraform
@@ -135,7 +133,7 @@ jobs:
       - name: Generate Metadata JSON
         id: metadatafile
         run: |
-          META_FILE=terraform/${{ matrix.environment }}-${{ steps.meta.outputs.plan-metadata }}.metadata.json
+          META_FILE=${{ matrix.environment }}-${{ steps.meta.outputs.plan-metadata }}.metadata.json
 
           sha256sum ${{ steps.tplan.outputs.plan_file }} | awk '{print $1}' > checksum.txt
           CHECKSUM=$(cat checksum.txt)
